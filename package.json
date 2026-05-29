@@ -1,0 +1,30 @@
+{
+  "name": "bsmeter",
+  "version": "0.1.0",
+  "description": "Not whether it's AI, whether it's worth reading. Information quality scoring for text.",
+  "main": "src/core/index.ts",
+  "bin": {
+    "bsmeter": "src/cli/index.ts"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "test": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14",
+    "react": "^18",
+    "react-dom": "^18",
+    "recharts": "^2",
+    "compromise": "^14"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^1",
+    "tailwindcss": "^3",
+    "@types/react": "^18",
+    "@types/node": "^20"
+  },
+  "license": "MIT"
+}

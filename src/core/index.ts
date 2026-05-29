@@ -1,0 +1,1 @@
+// [CLAUDE CODE] - See docs/ARCHITECTURE.md
