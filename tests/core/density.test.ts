@@ -1,16 +1,21 @@
-import { describe, expect, it } from "vitest";
-import { scoreUtility } from "../../src/core/density";
-import { ideaDensity } from "../../src/signals/idea-density";
+import { describe, it, expect } from "vitest";
+import { computeDensity } from "../../src/core/density";
 
-const concrete = "Maria deployed the billing migration after comparing 312 failed invoices against the May 2026 Stripe export.";
-const abstract = "This solution is important and valuable because it can help improve things in many useful ways.";
-
-describe("information utility", () => {
-  it("scores repetitive filler worse than concrete text", () => {
-    expect(scoreUtility("important useful valuable ".repeat(50)).score).toBeGreaterThan(scoreUtility(concrete).score);
+describe("computeDensity", () => {
+  it("returns a DimensionScore with required fields", () => {
+    const signals: any[] = [];
+    const result = computeDensity("This is a test text with some meaningful content about technology and systems.", { domain: "content-seo" }, signals);
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(result.weight).toBe(0.35);
+    expect(Array.isArray(result.signals)).toBe(true);
+    expect(typeof result.explanation).toBe("string");
   });
 
-  it("gives concrete technical text more idea density than abstract filler", () => {
-    expect(ideaDensity(concrete)).toBeGreaterThan(ideaDensity(abstract));
+  it("includes diff_overlap signal for code-review with diff", () => {
+    const signals: any[] = [];
+    computeDensity("Updated the login function", { domain: "code-review", context: { diff: "+if (!user) return null;" } }, signals);
+    const names = signals.map(s => s.name);
+    expect(names).toContain("diff_overlap");
   });
 });

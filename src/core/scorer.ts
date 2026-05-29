@@ -1,64 +1,98 @@
-import { scoreUtility } from "./density";
-import { scoreCodeReviewDomain, scoreContentSeoDomain, scoreSocialNewsDomain } from "./domains";
-import { scoreQuality } from "./quality";
-import { scoreStyle } from "./style";
-import type { BSDomain, BSResult, BSMeterOptions, BSVerdict, DimensionScore, Highlight } from "./types";
+import type { BSMeterOptions, BSResult, Highlight, SignalResult } from "./types";
+import { computeDensity } from "./density";
+import { computeQuality } from "./quality";
+import { computeStyle } from "./style";
+import { computeDomainSpecific } from "./domains/index";
 
-export function verdictForScore(score: number): BSVerdict {
+function toVerdict(score: number): "clean" | "suspect" | "bs" {
   if (score <= 30) return "clean";
   if (score <= 60) return "suspect";
   return "bs";
 }
 
-function stripResults<T extends DimensionScore & { results: unknown[] }>(dimension: T): DimensionScore {
-  const { results: _results, ...rest } = dimension;
-  return rest;
+function addHighlightsFromSignals(
+  text: string,
+  signals: SignalResult[],
+  highlights: Highlight[]
+): void {
+  // Template phrase highlights
+  if (signals.find(s => s.name === "template_rate" && s.flag)) {
+    const templatePhrases = [
+      "in conclusion", "to summarize", "furthermore", "moreover",
+      "it is important to note", "first and foremost", "last but not least",
+      "at the end of the day", "that being said", "as we can see",
+      "delve into", "dive into", "needless to say", "it goes without saying",
+    ];
+    const lower = text.toLowerCase();
+    for (const phrase of templatePhrases) {
+      let idx = lower.indexOf(phrase);
+      while (idx !== -1) {
+        highlights.push({
+          start: idx,
+          end: idx + phrase.length,
+          reason: `AI template phrase: "${phrase}"`,
+          severity: "medium",
+        });
+        idx = lower.indexOf(phrase, idx + 1);
+      }
+    }
+  }
+
+  // Hedging highlights
+  if (signals.find(s => s.name === "hedging_density" && s.flag)) {
+    const hedges = ["it seems", "arguably", "in many ways", "it could be said", "perhaps", "possibly"];
+    const lower = text.toLowerCase();
+    for (const hedge of hedges) {
+      let idx = lower.indexOf(hedge);
+      while (idx !== -1) {
+        highlights.push({
+          start: idx,
+          end: idx + hedge.length,
+          reason: "Hedging language",
+          severity: "low",
+        });
+        idx = lower.indexOf(hedge, idx + 1);
+      }
+    }
+  }
 }
 
-function scoreDomain(text: string, domain: BSDomain, options: BSMeterOptions) {
-  if (domain === "code-review") return scoreCodeReviewDomain(text, options.context?.diff ?? "");
-  if (domain === "social-news") return scoreSocialNewsDomain(text, options.context?.title ?? "");
-  return scoreContentSeoDomain(text, options.context?.title ?? "");
-}
+export function score(text: string, options: BSMeterOptions): BSResult {
+  const start = Date.now();
+  const allSignals: SignalResult[] = [];
+  const highlights: Highlight[] = [];
 
-function highlights(text: string): Highlight[] {
-  const patterns = ["it is important to note", "in conclusion", "furthermore", "moreover", "you won't believe"];
-  return patterns.flatMap((pattern) => {
-    const index = text.toLowerCase().indexOf(pattern);
-    return index >= 0 ? [{ start: index, end: index + pattern.length, reason: "template or clickbait phrase", severity: "medium" as const }] : [];
-  });
-}
+  const utility = computeDensity(text, options, allSignals);
+  const quality = computeQuality(text, options, allSignals);
+  const style = computeStyle(text, allSignals);
+  const domainSpecific = computeDomainSpecific(text, options, allSignals, highlights);
 
-export function bsScore(text: string, options: BSMeterOptions = {}): BSResult {
-  const start = performance.now();
-  const domain = options.domain ?? "content-seo";
-  const utility = scoreUtility(text);
-  const quality = scoreQuality(text, domain === "social-news");
-  const style = scoreStyle(text);
-  const domainSpecific = scoreDomain(text, domain, options);
-  const baseScore =
-    utility.score * utility.weight +
-    quality.score * quality.weight +
-    style.score * style.weight +
-    domainSpecific.score * domainSpecific.weight;
-  const synergyPenalty = utility.score >= 45 && style.score >= 55 ? Math.min(22, (utility.score + style.score - 100) * 0.55) : 0;
-  const score = Math.round(baseScore + synergyPenalty);
-  const signals = [...utility.results, ...quality.results, ...style.results, ...domainSpecific.results];
+  addHighlightsFromSignals(text, allSignals, highlights);
+
+  // Composite score: 35% utility + 25% quality + 20% style + 20% domain
+  const composite =
+    utility.score * 0.35 +
+    quality.score * 0.25 +
+    style.score * 0.20 +
+    domainSpecific.score * 0.20;
+
+  const finalScore = Math.round(Math.min(100, Math.max(0, composite)));
+
+  // Assign contribution to each signal proportionally
+  for (const sig of allSignals) {
+    sig.contribution = Math.round(sig.normalized * 0.1);
+  }
 
   return {
-    score: Math.max(0, Math.min(100, score)),
-    verdict: verdictForScore(score),
-    dimensions: {
-      utility: stripResults(utility),
-      quality: stripResults(quality),
-      style: stripResults(style),
-    },
-    domainSpecific: stripResults(domainSpecific),
-    signals,
-    highlights: highlights(text),
+    score: finalScore,
+    verdict: toVerdict(finalScore),
+    dimensions: { utility, quality, style },
+    domainSpecific,
+    signals: allSignals,
+    highlights,
     meta: {
       textLength: text.length,
-      processingTimeMs: Math.round(performance.now() - start),
+      processingTimeMs: Date.now() - start,
       model: "bsmeter-v1",
     },
   };

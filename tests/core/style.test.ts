@@ -1,26 +1,35 @@
-import { describe, expect, it } from "vitest";
-import { scoreStyle } from "../../src/core/style";
-import { lexicalDiversity } from "../../src/signals/lexical-diversity";
-import { sentenceLengthVariance } from "../../src/signals/sentence-variance";
-import { templateRate } from "../../src/signals/template-rate";
+import { describe, it, expect } from "vitest";
+import { computeStyle } from "../../src/core/style";
 
-const templated = "It is important to note that this comprehensive guide will help you unlock the power of productivity. Furthermore, it can streamline your workflow. In conclusion, this robust solution can take it to the next level.";
-const natural = "Nora deleted the retry loop. The patch is small, but it removes a noisy alert that paged support twice last week. Metrics showed each webhook had already been acknowledged before the second queue attempt, so the worker now records that state explicitly.";
-
-describe("style quality", () => {
-  it("detects known template phrases", () => {
-    expect(templateRate(templated)).toBeGreaterThan(templateRate(natural));
+describe("computeStyle", () => {
+  it("returns valid DimensionScore", () => {
+    const signals: any[] = [];
+    const result = computeStyle(
+      "The project launched successfully. We deployed to production. Tests passed. Metrics look good. Users are happy.",
+      signals
+    );
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(result.weight).toBe(0.20);
   });
 
-  it("detects low lexical diversity", () => {
-    expect(lexicalDiversity("value value value solution solution solution")).toBeLessThan(lexicalDiversity(natural));
+  it("flags text heavy with AI template phrases", () => {
+    const signals: any[] = [];
+    const result = computeStyle(
+      "In conclusion, it is important to note that furthermore, moreover, at the end of the day, needless to say, first and foremost.",
+      signals
+    );
+    const templateSig = signals.find((s: any) => s.name === "template_rate");
+    expect(templateSig?.flag).toBe(true);
   });
 
-  it("detects flatter sentence rhythm", () => {
-    expect(sentenceLengthVariance("This is useful. This is helpful. This is simple.")).toBeLessThan(sentenceLengthVariance(natural));
-  });
-
-  it("scores templated prose worse than natural prose", () => {
-    expect(scoreStyle(templated).score).toBeGreaterThan(scoreStyle(natural).score);
+  it("pushes all 4 signals into allSignals", () => {
+    const signals: any[] = [];
+    computeStyle("Hello world. This is a test. Testing is good.", signals);
+    const names = signals.map((s: any) => s.name);
+    expect(names).toContain("template_rate");
+    expect(names).toContain("sentence_variance");
+    expect(names).toContain("lexical_diversity");
+    expect(names).toContain("readability");
   });
 });

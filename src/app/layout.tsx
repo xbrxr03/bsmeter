@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "../styles/globals.css";
+import "../web/styles/globals.css";
 
 export const metadata: Metadata = {
   title: "BS Meter — Information Quality Scorer",

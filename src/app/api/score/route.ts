@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { bsScore } from "../../core/index";
-import type { BSMeterOptions } from "../../core/types";
+import { bsScore } from "../../../core/index";
+import type { BSMeterOptions } from "../../../core/types";
 
 const rateLimit = new Map<string, { count: number; reset: number }>();
 const LIMIT = 20;

@@ -1,22 +1,42 @@
-import { hedgingSignal } from "../signals/hedging";
-import { sourceGroundingSignal } from "../signals/source-grounding";
-import { specificitySignal } from "../signals/specificity";
-import { subjectivitySignal } from "../signals/subjectivity";
-import type { DimensionScore, SignalResult } from "./types";
+import type { BSMeterOptions, DimensionScore, SignalResult } from "./types";
+import { subjectivity } from "../signals/subjectivity";
+import { hedgingDensity } from "../signals/hedging";
+import { specificity } from "../signals/specificity";
+import { sourceGrounding } from "../signals/source-grounding";
 
-export function qualitySignals(text: string, includeGrounding = false): SignalResult[] {
-  const base = [hedgingSignal(text, 0.3), specificitySignal(text, 0.35), subjectivitySignal(text, 0.2)];
-  return includeGrounding ? [...base, sourceGroundingSignal(text, 0.15)] : [...base, sourceGroundingSignal(text, 0)];
-}
+export function computeQuality(
+  text: string,
+  options: BSMeterOptions,
+  allSignals: SignalResult[]
+): DimensionScore {
+  const subj = subjectivity(text);
+  const hedging = hedgingDensity(text);
+  const spec = specificity(text);
 
-export function scoreQuality(text: string, includeGrounding = false): DimensionScore & { results: SignalResult[] } {
-  const results = qualitySignals(text, includeGrounding);
-  const score = results.reduce((sum, signal) => sum + signal.contribution, 0);
+  const signals: SignalResult[] = [subj, hedging, spec];
+
+  if (options.domain === "social-news") {
+    const grounding = sourceGrounding(text);
+    signals.push(grounding);
+  }
+
+  allSignals.push(...signals);
+
+  const weights = options.domain === "social-news"
+    ? [0.20, 0.25, 0.25, 0.30]
+    : [0.25, 0.35, 0.40];
+
+  const score = signals.reduce((sum, s, i) => sum + s.normalized * weights[i], 0);
+
+  const flagged = signals.filter(s => s.flag).map(s => s.name);
+  const explanation = flagged.length > 0
+    ? `Quality concerns: ${flagged.join(", ")} flagged`
+    : "Information quality looks acceptable";
+
   return {
     score: Math.round(score),
     weight: 0.25,
-    signals: results.map((signal) => signal.name),
-    explanation: "Checks whether claims are specific, direct, grounded, and appropriately subjective.",
-    results,
+    signals: signals.map(s => s.name),
+    explanation,
   };
 }

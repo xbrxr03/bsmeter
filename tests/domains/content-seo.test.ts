@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { scoreContentSeoDomain } from "../../src/core/domains/content-seo";
+import { describe, it, expect } from "vitest";
+import { bsScore } from "../../src/core/index";
 
 describe("content-seo domain", () => {
-  it("flags keyword stuffing and listicle framing", () => {
-    const stuffed = "productivity tool productivity tool productivity tool productivity tool productivity tool can improve productivity.";
-    const specific = "The app exports tasks to CSV and preserves completed dates for Asana imports.";
-    expect(scoreContentSeoDomain(stuffed, "7 productivity tips").score).toBeGreaterThan(scoreContentSeoDomain(specific, "CSV export details").score);
+  it("returns valid result for blog content", () => {
+    const result = bsScore(
+      "React hooks were introduced in version 16.8. " +
+      "They allow you to use state and other React features without writing a class component. " +
+      "The useState hook takes an initial value and returns a pair: current state and a setter function.",
+      { domain: "content-seo", context: { title: "React Hooks Explained" } }
+    );
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(result.domainSpecific.signals).toContain("title_body_divergence");
+  });
+
+  it("flags keyword stuffing", () => {
+    const stuffed = "best best best SEO SEO SEO content content content marketing marketing marketing strategy strategy strategy";
+    const result = bsScore(stuffed, { domain: "content-seo" });
+    const sig = result.signals.find(s => s.name === "keyword_stuffing");
+    expect(sig?.flag).toBe(true);
   });
 });

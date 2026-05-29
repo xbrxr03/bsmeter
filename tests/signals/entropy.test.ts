@@ -1,12 +1,24 @@
-import { describe, expect, it } from "vitest";
-import { tokenEntropy, entropySignal } from "../../src/signals/entropy";
+import { describe, it, expect } from "vitest";
+import { tokenEntropy } from "../../src/signals/entropy";
 
-describe("token entropy", () => {
-  it("is higher for varied vocabulary", () => {
-    expect(tokenEntropy("alpha alpha alpha alpha alpha")).toBeLessThan(tokenEntropy("alpha beta gamma delta epsilon"));
+describe("tokenEntropy", () => {
+  it("returns a valid SignalResult", () => {
+    const result = tokenEntropy("The quick brown fox jumps over the lazy dog. A diverse sentence with many different words.");
+    expect(result.name).toBe("token_entropy");
+    expect(result.normalized).toBeGreaterThanOrEqual(0);
+    expect(result.normalized).toBeLessThanOrEqual(100);
   });
 
-  it("normalizes low entropy as a slop signal", () => {
-    expect(entropySignal("test test test test test").normalized).toBeGreaterThan(50);
+  it("gives higher BS score to repetitive text", () => {
+    const repetitive = "the the the the the the the the the the the the the the the the the the the the";
+    const diverse = "apple banana cherry dragon elephant fox gorilla hedgehog iguana jaguar kangaroo lemur mango narwhal octopus parrot quail rabbit salmon turtle unicorn viper whale xenon yak zebra";
+    const r1 = tokenEntropy(repetitive);
+    const r2 = tokenEntropy(diverse);
+    expect(r1.normalized).toBeGreaterThan(r2.normalized);
+  });
+
+  it("handles short text gracefully", () => {
+    const result = tokenEntropy("hi there");
+    expect(result.normalized).toBe(50);
   });
 });

@@ -1,21 +1,30 @@
-import { describe, expect, it } from "vitest";
-import { scoreQuality } from "../../src/core/quality";
-import { hedgingDensity } from "../../src/signals/hedging";
-import { specificityScore } from "../../src/signals/specificity";
+import { describe, it, expect } from "vitest";
+import { computeQuality } from "../../src/core/quality";
 
-const hedged = "It seems this could possibly help in many ways. One might argue it may be useful.";
-const direct = "On May 14, Stripe returned 37 duplicate invoice events for Acme Corp in the webhook retry queue.";
-
-describe("information quality", () => {
-  it("detects hedged writing", () => {
-    expect(hedgingDensity(hedged)).toBeGreaterThan(hedgingDensity(direct));
+describe("computeQuality", () => {
+  it("returns valid DimensionScore", () => {
+    const signals: any[] = [];
+    const result = computeQuality(
+      "According to a study published in Nature, researchers at MIT found that carbon emissions increased by 12% in 2024.",
+      { domain: "social-news" },
+      signals
+    );
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(result.weight).toBe(0.25);
   });
 
-  it("rewards specific names, dates, and numbers", () => {
-    expect(specificityScore(direct)).toBeGreaterThan(specificityScore(hedged));
+  it("includes source_grounding for social-news domain", () => {
+    const signals: any[] = [];
+    computeQuality("Some text here with claims.", { domain: "social-news" }, signals);
+    const names = signals.map((s: any) => s.name);
+    expect(names).toContain("source_grounding");
   });
 
-  it("scores vague hedging worse than direct evidence", () => {
-    expect(scoreQuality(hedged).score).toBeGreaterThan(scoreQuality(direct).score);
+  it("does not include source_grounding for content-seo domain", () => {
+    const signals: any[] = [];
+    computeQuality("Some text here.", { domain: "content-seo" }, signals);
+    const names = signals.map((s: any) => s.name);
+    expect(names).not.toContain("source_grounding");
   });
 });

@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
-import type { BSResult } from "../../core/types";
-import { TextInput } from "../components/TextInput";
-import { DomainSelector } from "../components/DomainSelector";
-import { ScoreDisplay } from "../components/ScoreDisplay";
-import { SignalList } from "../components/SignalList";
-import { HighlightedText } from "../components/HighlightedText";
+import type { BSResult } from "../core/types";
+import { TextInput } from "../web/components/TextInput";
+import { DomainSelector } from "../web/components/DomainSelector";
+import { ScoreDisplay } from "../web/components/ScoreDisplay";
+import { SignalList } from "../web/components/SignalList";
+import { HighlightedText } from "../web/components/HighlightedText";
 
 export default function Home() {
   const [text, setText] = useState("");
